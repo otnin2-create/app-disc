@@ -18,7 +18,7 @@ import {
   Download,
   Share2
 } from 'lucide-react';
-import { DISC_QUESTIONS, shuffleQuestions } from '@/lib/disc-questions';
+import { DISC_QUESTIONS, shuffleQuestions, shuffleQuestionOptions } from '@/lib/disc-questions';
 import { calculateDISCResult, getMotivationalMessage, generatePersonalizedTips } from '@/lib/disc-calculator';
 import { DISCQuestion, DISCResult, DISC_PROFILES } from '@/lib/disc-types';
 import { downloadReport, shareResult, saveResult } from '@/lib/disc-utils';
@@ -48,8 +48,11 @@ export default function DISCApp() {
   }, [timerActive, timeLeft, appState]);
 
   const startQuestionnaire = () => {
+    // Primeiro embaralha as perguntas, depois embaralha as opções de cada pergunta
     const shuffledQuestions = shuffleQuestions(DISC_QUESTIONS).slice(0, 25);
-    setQuestions(shuffledQuestions);
+    const questionsWithShuffledOptions = shuffleQuestionOptions(shuffledQuestions);
+    
+    setQuestions(questionsWithShuffledOptions);
     setCurrentQuestion(0);
     setAnswers({});
     setAppState('questionnaire');
@@ -229,7 +232,7 @@ export default function DISCApp() {
             <CardContent className="space-y-3">
               {question?.options.map((option, index) => (
                 <Button
-                  key={index}
+                  key={`${option.type}-${option.text}`} // Chave única baseada no conteúdo
                   onClick={() => handleAnswer(option.type)}
                   variant="outline"
                   className="w-full p-6 text-left justify-start hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-wrap h-auto"
