@@ -1,4 +1,5 @@
-import { DISCResult } from './disc-types';
+import { DISCResult, DISC_PROFILES } from './disc-types';
+import jsPDF from 'jspdf';
 
 // Função para gerar relatório em texto para download
 export function generateTextReport(result: DISCResult): string {
@@ -31,8 +32,141 @@ Data: ${new Date().toLocaleDateString('pt-BR')}
   return report;
 }
 
-// Função para baixar relatório como arquivo de texto
+// Função para gerar relatório em PDF
+export function generatePDFReport(result: DISCResult): jsPDF {
+  const doc = new jsPDF();
+  const primaryProfile = DISC_PROFILES[result.primaryType];
+  
+  // Configurações
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 20;
+  const lineHeight = 7;
+  let yPosition = 30;
+  
+  // Função auxiliar para adicionar texto com quebra de linha
+  const addText = (text: string, x: number, y: number, maxWidth?: number) => {
+    if (maxWidth) {
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, x, y);
+      return y + (lines.length * lineHeight);
+    } else {
+      doc.text(text, x, y);
+      return y + lineHeight;
+    }
+  };
+  
+  // Cabeçalho
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RELATÓRIO DISC', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 10;
+  
+  doc.setFontSize(16);
+  doc.text('Perfil Comportamental', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 20;
+  
+  // Perfil Principal
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PERFIL PRINCIPAL', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  yPosition = addText(`${result.primaryType} - ${primaryProfile.name}`, margin, yPosition, pageWidth - 2 * margin);
+  yPosition = addText(result.description, margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 10;
+  
+  // Distribuição dos Perfis
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DISTRIBUIÇÃO DOS PERFIS', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  Object.entries(result.percentages).forEach(([type, percentage]) => {
+    const profile = DISC_PROFILES[type as keyof typeof DISC_PROFILES];
+    yPosition = addText(`${type} (${profile.name}): ${percentage}%`, margin + 5, yPosition);
+  });
+  yPosition += 10;
+  
+  // Pontos Fortes
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PONTOS FORTES', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  result.strengths.forEach(strength => {
+    yPosition = addText(`• ${strength}`, margin + 5, yPosition, pageWidth - 2 * margin - 10);
+  });
+  yPosition += 10;
+  
+  // Verificar se precisa de nova página
+  if (yPosition > 250) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
+  // Áreas de Desenvolvimento
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ÁREAS DE DESENVOLVIMENTO', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  result.developmentAreas.forEach(area => {
+    yPosition = addText(`• ${area}`, margin + 5, yPosition, pageWidth - 2 * margin - 10);
+  });
+  yPosition += 10;
+  
+  // Verificar se precisa de nova página
+  if (yPosition > 250) {
+    doc.addPage();
+    yPosition = 30;
+  }
+  
+  // Recomendações
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RECOMENDAÇÕES', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  result.recommendations.forEach(recommendation => {
+    yPosition = addText(`• ${recommendation}`, margin + 5, yPosition, pageWidth - 2 * margin - 10);
+  });
+  yPosition += 20;
+  
+  // Rodapé
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Este relatório foi gerado pelo DISC Rápido', margin, yPosition);
+  yPosition += 5;
+  doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPosition);
+  
+  return doc;
+}
+
+// Função para baixar relatório como PDF
 export function downloadReport(result: DISCResult): void {
+  try {
+    const doc = generatePDFReport(result);
+    const fileName = `relatorio-disc-${result.primaryType}-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    // Fallback para download em texto
+    downloadTextReport(result);
+  }
+}
+
+// Função para baixar relatório como arquivo de texto (fallback)
+export function downloadTextReport(result: DISCResult): void {
   const report = generateTextReport(result);
   const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
